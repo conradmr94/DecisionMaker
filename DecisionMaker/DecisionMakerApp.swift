@@ -1,3 +1,4 @@
+// DecisionMakerApp.swift
 import SwiftUI
 import SwiftData
 
@@ -7,6 +8,6 @@ struct DecisionMakerApp: App {
         WindowGroup {
             HomeView()
         }
-        .modelContainer(for: [DecisionSet.self, Choice.self])
+        .modelContainer(for: [DecisionSet.self, Choice.self, ChoicePref.self, ChoiceLog.self])
     }
 }
