@@ -28,126 +28,292 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // LIST (no TextField inside)
-                List {
-                    if options.isEmpty {
-                        Section {
-                            Text("No options yet. Add a few below, then tap Pick.")
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Section("Options") {
-                            ForEach(options, id: \.self) { o in
-                                HStack {
-                                    Text(o)
-                                    Spacer()
-                                    if let s = pref(for: o) {
-                                        let score = SmartPicker.betaMean(success: s.success, failure: s.failure)
-                                        Text(String(format: "★ %.2f", score))
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
+            ZStack {
+                // Main content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Options Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Image(systemName: "list.bullet.circle.fill")
+                                    .foregroundStyle(.blue)
+                                    .font(.title2)
+                                Text("Options")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Spacer()
+                                if !options.isEmpty {
+                                    Text("\(options.count)")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(.blue)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            
+                            if options.isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "plus.circle")
+                                        .font(.system(size: 48))
+                                        .foregroundStyle(.secondary)
+                                    Text("No options yet")
+                                        .font(.headline)
+                                        .foregroundStyle(.secondary)
+                                    Text("Add a few options below, then tap Pick One to make a decision")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 40)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.ultraThinMaterial)
+                                        .stroke(.quaternary, lineWidth: 1)
+                                )
+                            } else {
+                                LazyVStack(spacing: 12) {
+                                    ForEach(Array(options.enumerated()), id: \.element) { index, option in
+                                        OptionCard(
+                                            option: option,
+                                            index: index,
+                                            score: {
+                                                if let pref = pref(for: option) {
+                                                    return SmartPicker.betaMean(success: pref.success, failure: pref.failure)
+                                                }
+                                                return nil
+                                            }(),
+                                            onDelete: { delete(at: IndexSet(integer: index)) }
+                                        )
                                     }
                                 }
                             }
-                            .onDelete(perform: delete)
-                            .onMove(perform: move)
                         }
+                        .padding(.horizontal, 20)
+
+                        // Input Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(.green)
+                                    .font(.title2)
+                                Text("Add Option")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                            }
+                            
+                            HStack(spacing: 12) {
+                                TextField("Add an option (e.g., Korean Food)", text: $input)
+                                    .textFieldStyle(.roundedBorder)
+                                    .textInputAutocapitalization(.words)
+                                    .submitLabel(.done)
+                                    .onSubmit { add() }
+                                
+                                Button { add() } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(.green)
+                                }
+                                .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        // Adventure Slider Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Image(systemName: "dice.fill")
+                                    .foregroundStyle(.orange)
+                                    .font(.title2)
+                                Text("Adventurousness")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Spacer()
+                                Text(SmartPicker.adventureLabel(adventurousness))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.orange.opacity(0.1))
+                                    .clipShape(Capsule())
+                            }
+                            
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Text("Safe")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("Adventurous")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Slider(value: $adventurousness, in: 0...1, step: 0.05)
+                                    .tint(.orange)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        // Decision Section
+                        VStack(spacing: 16) {
+                            Button(action: pickOne) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "wand.and.stars")
+                                        .font(.title2)
+                                    Text("Pick One")
+                                        .font(.title3)
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .foregroundStyle(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                            }
+                            .disabled(options.count < 2)
+                            .scaleEffect(options.count < 2 ? 0.95 : 1.0)
+                            .opacity(options.count < 2 ? 0.6 : 1.0)
+
+                            // Utility Buttons
+                            HStack(spacing: 16) {
+                                Button { showSaveAsList = true } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "square.and.arrow.down")
+                                        Text("Save as List")
+                                            .fontWeight(.medium)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(.ultraThinMaterial)
+                                    .foregroundStyle(.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(.quaternary, lineWidth: 1)
+                                    )
+                                }
+                                .disabled(options.isEmpty)
+
+                                Button(role: .destructive) { showClearConfirm = true } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "trash")
+                                        Text("Clear All")
+                                            .fontWeight(.medium)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(.red.opacity(0.1))
+                                    .foregroundStyle(.red)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(.red.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
                     }
+                    .padding(.vertical, 20)
                 }
+                .background(Color(.systemGroupedBackground))
 
-                Divider()
-
-                // INPUT COMPOSER
-                HStack(spacing: 8) {
-                    TextField("Add an option (e.g., Korean Food)", text: $input)
-                        .textInputAutocapitalization(.words)
-                        .submitLabel(.done)
-                        .onSubmit { add() }
-                    Button { add() } label: {
-                        Image(systemName: "plus.circle.fill").imageScale(.large)
-                    }
-                    .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
-
-                // ADVENTURE SLIDER
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Adventurousness").font(.subheadline).bold()
-                        Spacer()
-                        Text(SmartPicker.adventureLabel(adventurousness))
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                    Slider(value: $adventurousness, in: 0...1, step: 0.05)
-                }
-                .padding(.horizontal)
-                .padding(.top, 10)
-
-                // ACTIONS / RESULT / FEEDBACK
-                VStack(spacing: 10) {
-                    Button(action: pickOne) {
-                        HStack {
-                            Image(systemName: "wand.and.stars")
-                            Text("Pick One").fontWeight(.semibold)
+                // Result Overlay - always visible when there's a result
+                if let picked {
+                    // Background overlay to shade out main content
+                    Color.black.opacity(0.7)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                    
+                    // Result card in center
+                    VStack(spacing: 16) {
+                        // Result Card
+                        VStack(spacing: 12) {
+                            Image(systemName: "star.circle.fill")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.yellow)
+                                .symbolEffect(.bounce, options: .repeating)
+                            
+                            Text("Your Decision")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            
+                            Text(picked)
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .multilineTextAlignment(.center)
+                                .id(picked)
+                                .transition(.scale.combined(with: .opacity))
                         }
                         .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(options.count < 2)
+                        .padding(.vertical, 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(.thickMaterial)
+                                .stroke(.yellow.opacity(0.3), lineWidth: 2)
+                        )
+                        .shadow(color: .yellow.opacity(0.2), radius: 12, x: 0, y: 6)
 
-                    if let picked {
-                        VStack(spacing: 8) {
-                            Text("Result: \(picked)")
-                                .font(.title3).bold().id(picked)
-                                .transition(.scale.combined(with: .opacity))
-
-                            HStack(spacing: 12) {
-                                Button { acceptChoice(picked) } label: {
-                                    Label("Accept Choice", systemImage: "checkmark.circle.fill")
-                                        .frame(maxWidth: .infinity)
+                        // Action Buttons
+                        HStack(spacing: 16) {
+                            Button { acceptChoice(picked) } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Accept")
+                                        .fontWeight(.semibold)
                                 }
-                                .buttonStyle(.borderedProminent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.green)
+                                .foregroundStyle(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
 
-                                Button { skipChoice(picked) } label: {
-                                    Label("Another", systemImage: "arrow.triangle.2.circlepath")
-                                        .frame(maxWidth: .infinity)
+                            Button { skipChoice(picked) } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                    Text("Try Again")
+                                        .fontWeight(.semibold)
                                 }
-                                .buttonStyle(.bordered)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.orange)
+                                .foregroundStyle(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                         }
                     }
-
-                    HStack {
-                        Button { showSaveAsList = true } label: {
-                            Label("Save as List", systemImage: "square.and.arrow.down")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(options.isEmpty)
-
-                        Button(role: .destructive) { showClearConfirm = true } label: {
-                            Label("Clear", systemImage: "trash")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, 20)
+                    .transition(.scale.combined(with: .opacity))
                 }
-                .padding(.horizontal)
-                .padding(.top, 6)
             }
             .navigationTitle("Decision Maker")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { DecisionSetListView() } label: {
                         Label("Lists", systemImage: "list.bullet")
+                            .font(.headline)
+                            .foregroundStyle(.blue)
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    EditButton().disabled(options.isEmpty)
+                    EditButton()
+                        .disabled(options.isEmpty)
+                        .font(.headline)
+                        .foregroundStyle(.blue)
                 }
             }
             .confirmationDialog("Remove all options?", isPresented: $showClearConfirm, titleVisibility: .visible) {
@@ -272,6 +438,72 @@ struct HomeView: View {
         if recentPicks.count > recentLimit {
             recentPicks.removeFirst(recentPicks.count - recentLimit)
         }
+    }
+}
+
+// MARK: - OptionCard Component
+struct OptionCard: View {
+    let option: String
+    let index: Int
+    let score: Double?
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Option number
+            Text("\(index + 1)")
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(
+                    LinearGradient(
+                        colors: [.blue, .purple],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(Circle())
+            
+            // Option text
+            Text(option)
+                .font(.body)
+                .fontWeight(.medium)
+                .lineLimit(2)
+            
+            Spacer()
+            
+            // Score badge
+            if let score = score {
+                VStack(spacing: 2) {
+                    Image(systemName: "star.fill")
+                        .font(.caption)
+                        .foregroundStyle(.yellow)
+                    Text(String(format: "%.2f", score))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            // Delete button
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(8)
+                    .background(.red.opacity(0.1))
+                    .clipShape(Circle())
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .stroke(.quaternary, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 }
 

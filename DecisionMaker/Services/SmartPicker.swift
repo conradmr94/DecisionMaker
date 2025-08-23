@@ -1,5 +1,12 @@
 import Foundation
 
+// MARK: - Optional Extension
+extension Optional {
+    func `let`<T>(_ transform: (Wrapped) -> T) -> T? {
+        return self.map(transform)
+    }
+}
+
 enum SmartPicker {
 
     // Public API: pick a title from pool using preference scores and an adventurousness knob [0,1].
